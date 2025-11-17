@@ -1,0 +1,17 @@
+# SSH Config for macOS Keychain Integration
+# Place this file at: ~/.ssh/config
+#
+# This enables automatic loading of SSH keys from macOS Keychain
+# and stores passphrases securely in Keychain for convenience
+
+Host *
+  UseKeychain yes
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/id_ed25519
+  IdentityFile ~/.ssh/id_rsa
+
+# Add any additional host-specific configurations below
+# Example:
+# Host github.com
+#   IdentityFile ~/.ssh/github_key
+#   User git

@@ -1,0 +1,99 @@
+# .zshrc for macOS
+# SSH Agent Management
+# This ensures only one ssh-agent runs across all zsh sessions
+#
+# NOTE: macOS has built-in Keychain integration for SSH keys.
+# To enable automatic key loading from Keychain, add this to ~/.ssh/config:
+#   Host *
+#     UseKeychain yes
+#     AddKeysToAgent yes
+# This will persist your keys across reboots without re-entering passphrases.
+
+SSH_ENV="$HOME/.ssh/agent/environment"
+
+function load_ssh_keys {
+    # Add all private keys (excluding .pub and .ppk files)
+    local keys_loaded=0
+    
+    for key in ~/.ssh/*; do
+        # Skip if it's a directory
+        if [ -d "$key" ]; then
+            continue
+        fi
+        
+        # Skip files with .pub or .ppk extensions
+        if [[ "$key" == *.pub ]] || [[ "$key" == *.ppk ]]; then
+            continue
+        fi
+        
+        # Skip known_hosts and other non-key files
+        if [[ "$key" == *known_hosts* ]] || [[ "$key" == *environment* ]] || [[ "$key" == *config* ]]; then
+            continue
+        fi
+        
+        # Try to add the key with macOS Keychain integration
+        # The --apple-use-keychain flag stores passphrases in macOS Keychain
+        if ssh-add --help 2>&1 | grep -q "apple-use-keychain"; then
+            # Modern macOS (12.0+) with --apple-use-keychain flag
+            ssh-add --apple-use-keychain "$key" 2>/dev/null
+        else
+            # Fallback for older macOS or if flag not available
+            ssh-add "$key" 2>/dev/null
+        fi
+        
+        if [ $? -eq 0 ]; then
+            echo "  Added: $(basename "$key")"
+            keys_loaded=$((keys_loaded + 1))
+        fi
+    done
+    
+    if [ $keys_loaded -eq 0 ]; then
+        echo "  No keys were added (they may already be loaded)"
+    fi
+}
+
+function start_agent {
+    echo "Starting new SSH agent..."
+    mkdir -p "$HOME/.ssh/agent"
+    ssh-agent | sed 's/^echo/#echo/' > "${SSH_ENV}"
+    chmod 600 "${SSH_ENV}"
+    . "${SSH_ENV}" > /dev/null
+    load_ssh_keys
+    echo ""
+}
+
+# Check if agent file exists and source it
+if [ -f "${SSH_ENV}" ]; then
+    . "${SSH_ENV}" > /dev/null
+    
+    # Check if the agent is actually running
+    ps -p ${SSH_AGENT_PID} > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        # Agent is not running, start a new one
+        start_agent
+    else
+        # Agent is running, check if keys are loaded
+        ssh-add -l &>/dev/null
+        agent_status=$?
+        
+        if [ $agent_status -eq 2 ]; then
+            # Agent is running but not responding, start a new one
+            start_agent
+        elif [ $agent_status -eq 1 ]; then
+            # Agent is running but has no identities, load keys
+            echo "SSH agent running, loading keys..."
+            load_ssh_keys
+        fi
+        # If agent_status is 0, agent has keys already loaded, do nothing
+    fi
+else
+    # No agent file exists, start a new one
+    start_agent
+fi
+
+# Optional: Add any other zsh configurations below
+# Example: aliases, PATH modifications, etc.
+
+# Uncomment to see loaded keys on shell start
+# echo "Loaded SSH keys:"
+# ssh-add -l

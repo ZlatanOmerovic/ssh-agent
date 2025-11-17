@@ -1,0 +1,35 @@
+# SSH Agent Auto-Loader .gitignore
+
+# Never commit actual SSH keys or agent files
+.ssh/
+*.pem
+*.key
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
+agent/
+environment
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.*.swp
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Test directories
+test/
+tests/
+tmp/
